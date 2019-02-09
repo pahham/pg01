@@ -1,0 +1,115 @@
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width" />
+    <!-- This is a wide open CSP declaration. To lock this down for production, see below. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src *" />
+    <!-- Good default declaration:
+    * gap: is required only on iOS (when using UIWebView) and is needed for JS->native communication
+    * https://ssl.gstatic.com is required only on Android and is needed for TalkBack to function properly
+    * Disables use of eval() and inline scripts in order to mitigate risk of XSS vulnerabilities. To change this:
+        * Enable inline JS: add 'unsafe-inline' to default-src
+        * Enable eval(): add 'unsafe-eval' to default-src
+    * Create your own at http://cspisawesome.com
+    -->
+    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: gap: 'unsafe-inline' https://ssl.gstatic.com; style-src 'self' 'unsafe-inline'; media-src *" /> -->
+
+    <link rel="stylesheet" type="text/css" href="css/index.css" />
+    <title>Hello World</title>
+</head>
+
+<body>
+	<div data-role="page">
+		<div data-role="header" data-position="fixed" role="banner">
+			<h1>Pahham Track Manager</h1>
+		</div>
+	</div>
+	<div data-role="main">
+		<button id="startbutton" onclick="startPosition()" style="width:30%; height:10%; position:absolute; top:20%; left:30%">Start</button><br>
+		<button id="stopbutton" onclick="stopPosition()" style="width:30%; height:10%; position:absolute; top:40%; left:30%">Stop</button><br>
+		<button id="sendbutton" onclick="sendPosition()" style="width:30%; height:10%; position:absolute; top:60%; left:30%">Send</button>
+	</div>
+	
+    <script type="text/javascript" src="cordova.js"></script>
+    <script type="text/javascript" src="js/index.js"></script>
+    <script type="text/javascript">
+
+	    var list = "<?xml version='1.0' encoding='UTF-8' standalone='no' ?>";
+	    list = list + "<gpx xmlns='http://www.topografix.com/GPX/1/1' version='1.1' creator='pahham'";
+	    list = list + " xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'";
+	    list = list + " xsi:schemaLocation='http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd'>";
+	    list = list + "<trk>\n<name>Test</name><trkseg>\n";
+
+	    var watchID = null;
+	    
+        app.initialize();
+	    
+	    function dummy() {
+		    //do nothing
+		}
+	    
+	    function onSuccess(position) {
+			var tzoffset = (new Date()).getTimezoneOffset() * 60000; //offset in milliseconds
+			var offsetTime = position.timestamp - tzoffset;
+			var utcTime = new Date(offsetTime).toISOString().split('.')[0];
+
+			var my_altitude = position.coords.altitude;
+			if (my_altitude == null) {
+				my_altitude = 0;
+			}
+			var my_speed = position.coords.speed;
+			if (my_speed == null) {
+				my_speed = 0;
+			}
+			list = list + "<trkpt lat='" + position.coords.latitude + "' lon='" + position.coords.longitude + "'><time>";
+			list = list + utcTime + "</time><geoidheight>" + my_altitude + "</geoidheight><speed>";
+			list = list + my_speed + "</speed></trkpt>\n";
+			document.body.style.backgroundColor = "green";
+			setTimeout(dummy, 1000);
+    	};
+
+	    function onError(error) {
+    	    //alert('code: '    + error.code    + '\n' +
+        	//      'message: ' + error.message + '\n');
+    	}
+
+		function startPosition() {
+			watchID = navigator.geolocation.watchPosition(onSuccess, onError, { maximumAge: 3000, timeout: 5000, enableHighAccuracy: true });
+			if (watchID) {
+				alert('Tracking started');
+			}
+			document.body.style.backgroundColor = "green";
+		}
+
+		function stopPosition() {
+			navigator.geolocation.clearWatch(watchID);
+			alert('Tracking stopped');
+			document.body.style.backgroundColor = "red";
+		}
+
+		function sendPosition() {
+			var http = new XMLHttpRequest();
+			var url = 'https://www.pahham.org/api/tracks.php';
+			list = list + "</trkseg></trk></gpx>";
+			var params = 'user=test&filename=pos_' + Date.now() + '&inhalt=' + list;
+			http.open('POST', url, true);
+
+			//Send the proper header information along with the request
+			http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+
+			http.onreadystatechange = function() {//Call a function when the state changes.
+			    if(http.readyState == 4 && http.status == 200) {
+			        alert(http.responseText);
+			    } 
+			}
+			http.send(params);
+			document.body.style.backgroundColor = "grey";
+		}
+
+    </script>
+</body>
+
+</html>
